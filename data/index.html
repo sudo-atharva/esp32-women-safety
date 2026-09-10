@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Safety Band Setup</title>
+<style>
+  body { font-family: sans-serif; max-width: 420px; margin: 20px auto; padding: 0 12px; }
+  label { display: block; margin-top: 14px; font-weight: bold; }
+  input { width: 100%; padding: 6px; box-sizing: border-box; margin-top: 4px; }
+  .num-row { display: flex; gap: 6px; margin-top: 6px; }
+  .num-row input { flex: 1; }
+  button { margin-top: 10px; padding: 8px 14px; cursor: pointer; }
+  #status { margin-top: 14px; font-weight: bold; }
+</style>
+</head>
+<body>
+<h2>Safety Band Setup</h2>
+
+<label>Wearer name</label>
+<input id="name">
+
+<label>Alert phone numbers</label>
+<div id="numbers"></div>
+<button type="button" onclick="addNumberField()">+ Add number</button>
+
+<label><input type="checkbox" id="gfEnabled" style="width:auto"> Enable geofence</label>
+<label>Center latitude</label>
+<input id="gfLat" type="number" step="any">
+<label>Center longitude</label>
+<input id="gfLon" type="number" step="any">
+<label>Radius (meters)</label>
+<input id="gfRadius" type="number" step="any">
+
+<button type="button" onclick="saveConfig()">Save</button>
+<div id="status"></div>
+
+<script>
+function addNumberField(value) {
+  const div = document.createElement('div');
+  div.className = 'num-row';
+  div.innerHTML = '<input type="tel" value="' + (value || '') +
+    '" placeholder="+15551234567"><button type="button" onclick="this.parentElement.remove()">x</button>';
+  document.getElementById('numbers').appendChild(div);
+}
+
+async function loadConfig() {
+  const res = await fetch('/api/config');
+  const cfg = await res.json();
+  document.getElementById('name').value = cfg.name || '';
+  document.getElementById('numbers').innerHTML = '';
+  (cfg.numbers || []).forEach(n => addNumberField(n));
+  const gf = cfg.geofence || {};
+  document.getElementById('gfEnabled').checked = !!gf.enabled;
+  document.getElementById('gfLat').value = gf.lat || 0;
+  document.getElementById('gfLon').value = gf.lon || 0;
+  document.getElementById('gfRadius').value = gf.radiusM || 500;
+}
+
+async function saveConfig() {
+  const numbers = Array.from(document.querySelectorAll('#numbers input'))
+    .map(i => i.value.trim())
+    .filter(v => v.length);
+
+  const cfg = {
+    name: document.getElementById('name').value.trim(),
+    numbers: numbers,
+    geofence: {
+      enabled: document.getElementById('gfEnabled').checked,
+      lat: parseFloat(document.getElementById('gfLat').value) || 0,
+      lon: parseFloat(document.getElementById('gfLon').value) || 0,
+      radiusM: parseFloat(document.getElementById('gfRadius').value) || 500
+    }
+  };
+
+  const statusEl = document.getElementById('status');
+  statusEl.textContent = 'Saving...';
+  const res = await fetch('/api/config', { method: 'POST', body: JSON.stringify(cfg) });
+  const out = await res.json();
+  statusEl.textContent = out.ok ? 'Saved.' : 'Failed to save.';
+}
+
+loadConfig();
+</script>
+</body>
+</html>
